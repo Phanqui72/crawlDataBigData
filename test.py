@@ -50,6 +50,7 @@ print("\n--- GIAI ĐOẠN 2: BẮT ĐẦU CÀO DỮ LIỆU CHI TIẾT TỪNG S�
 all_products_data = []
 total_urls = len(product_urls)
 failed_urls = []
+product_id_counter = 1 # BỘ ĐẾM ID SẢN PHẨM
 
 for i, url in enumerate(product_urls):
     try:
@@ -57,8 +58,12 @@ for i, url in enumerate(product_urls):
         time.sleep(3) 
 
         product_data = {}
+        
+        # THÊM ID SẢN PHẨM
+        product_data['id'] = product_id_counter
+        
         product_name = get_element_text(driver, 'h1')
-        print(f"Đang cào sản phẩm {i+1}/{total_urls}: {product_name}")
+        print(f"Đang cào sản phẩm ID {product_id_counter}/{total_urls}: {product_name}")
 
         # Lấy thông tin chung, giá, khuyến mãi...
         product_data['product_name'] = product_name
@@ -77,7 +82,6 @@ for i, url in enumerate(product_urls):
             spec_container = driver.find_element(By.CSS_SELECTOR, "div.specification-item")
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", spec_container)
             time.sleep(1)
-
             spec_headers_to_click = spec_container.find_elements(By.CSS_SELECTOR, "div.box-specifi")
             print(f"  - Tìm thấy {len(spec_headers_to_click)} mục cấu hình để mở rộng.")
             for header in spec_headers_to_click:
@@ -86,21 +90,17 @@ for i, url in enumerate(product_urls):
                     time.sleep(0.5)
         except NoSuchElementException:
             print("  - Không tìm thấy khu vực cấu hình chi tiết.")
-
-        # **SỬA LỖI QUAN TRỌNG: DÙNG ĐÚNG SELECTOR `ul.text-specifi li`**
-        # Sau khi đã mở rộng, cào dữ liệu từ các dòng thông tin
+        
+        # Cào dữ liệu từ các dòng thông tin
         spec_rows = driver.find_elements(By.CSS_SELECTOR, 'ul.text-specifi li')
         print(f"  - Tìm thấy {len(spec_rows)} dòng thông số chi tiết để cào.")
         for row in spec_rows:
             try:
-                # Mỗi 'li' có 2 thẻ 'aside', thẻ đầu là tên, thẻ sau là giá trị
                 parts = row.find_elements(By.TAG_NAME, 'aside')
                 if len(parts) == 2:
                     spec_name = parts[0].text.strip()
                     spec_value = parts[1].text.strip()
-
-                    if not spec_name or not spec_value: continue # Bỏ qua nếu dòng trống
-
+                    if not spec_name or not spec_value: continue
                     if "Công nghệ CPU" in spec_name: product_data['cpu_spec'] = spec_value
                     elif "RAM" in spec_name: product_data['ram_spec'] = spec_value
                     elif "Ổ cứng" in spec_name: product_data['storage_spec'] = spec_value
@@ -114,10 +114,9 @@ for i, url in enumerate(product_urls):
                     elif "Cổng kết nối" in spec_name or "Kết nối không dây" in spec_name:
                         current_conn_spec = product_data.get('connectivity_spec', '')
                         product_data['connectivity_spec'] = f"{current_conn_spec}{spec_name}: {spec_value} | "
-
             except Exception: continue
         
-        # Lấy thông tin đánh giá
+        # **SỬA LẠI SELECTOR ĐÁNH GIÁ**
         try:
             rating_container = driver.find_element(By.CSS_SELECTOR, 'div.wrap_rating.wrap_border')
             product_data['average_rating'] = get_element_text(rating_container, '.point')
@@ -135,6 +134,7 @@ for i, url in enumerate(product_urls):
         except NoSuchElementException: pass
         
         all_products_data.append(product_data)
+        product_id_counter += 1 # TĂNG BỘ ĐẾM ID
 
     except Exception as e:
         print(f"  *** LỖI NGHIÊM TRỌNG KHI CÀO URL: {url} - BỎ QUA ***")
@@ -148,8 +148,9 @@ driver.quit()
 print("\n--- GIAI ĐOẠN 3: BẮT ĐẦU LƯU DỮ LIỆU RA FILE CSV ---")
 if all_products_data:
     filename = 'laptops_full_data_thegioididong.csv'
+    # THÊM 'id' VÀO ĐẦU DANH SÁCH CỘT
     headers = [
-        'product_name', 'current_price', 'list_price', 'brand', 'category', 
+        'id', 'product_name', 'current_price', 'list_price', 'brand', 'category', 
         'cpu_spec', 'ram_spec', 'storage_spec', 'screen_spec', 'gpu_spec',
         'os_spec', 'design_spec', 'size_weight_spec', 'connectivity_spec',
         'promotions_text', 'average_rating', 'total_reviews', 'stock_status',
